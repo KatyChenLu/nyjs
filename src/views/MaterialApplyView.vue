@@ -185,9 +185,9 @@
         <div v-if="recordsLoading" class="record-loading">加载中...</div>
 
         <div v-else>
-          <div v-if="hasSearched" class="record-result-count">共找到 {{ applyRecords.length }} 条记录</div>
+          <div v-if="hasSearched" class="record-result-count">共找到 {{ totalRecords }} 条记录，第 {{ currentPage }} / {{ lastPage }} 页</div>
 
-          <div v-if="applyRecords.length" class="record-list">
+          <div v-if="applyRecords.length" class="record-list" ref="recordListRef">
           <article v-for="record in applyRecords" :key="record.id" class="record-item">
             <!-- 左侧：申请单信息 -->
             <div class="record-left">
@@ -244,6 +244,19 @@
               </button>
             </div>
           </article>
+          </div>
+
+          <div v-if="lastPage > 1" class="pager">
+            <button class="pager-btn" type="button" :disabled="currentPage <= 1" @click="changePage(currentPage - 1)">上一页</button>
+            <button
+              v-for="p in pageNumbers"
+              :key="p"
+              class="pager-num"
+              type="button"
+              :class="{ active: p === currentPage }"
+              @click="changePage(p)"
+            >{{ p }}</button>
+            <button class="pager-btn" type="button" :disabled="currentPage >= lastPage" @click="changePage(currentPage + 1)">下一页</button>
           </div>
 
           <div v-if="!applyRecords.length" class="record-empty">{{ hasSearched ? "未找到符合条件的记录" : "暂无物料申请记录" }}</div>
@@ -307,6 +320,11 @@ const filterStartTime = ref("");
 const filterEndTime = ref("");
 const hasSearched = ref(false);
 const expandedRecordIds = ref([]);
+const currentPage = ref(1);
+const lastPage = ref(1);
+const totalRecords = ref(0);
+const pageSize = ref(10);
+const recordListRef = ref(null);
 
 const shopName = computed(() => authStore.getCachedUser()?.shopname || "当前门店");
 const salerName = computed(() => authStore.getCachedSaler()?.salerName || "");
@@ -439,7 +457,7 @@ function restoreDraft() {
   }
 }
 
-async function loadApplyRecords() {
+async function loadApplyRecords(page = 1) {
   recordsLoading.value = true;
   try {
     const result = await api.fetchApplyList({
@@ -447,9 +465,14 @@ async function loadApplyRecords() {
       remark: filterRemark.value,
       status: filterStatus.value,
       starttime: filterStartTime.value,
-      endtime: filterEndTime.value
+      endtime: filterEndTime.value,
+      page
     });
     applyRecords.value = result.list;
+    currentPage.value = result.page || page;
+    lastPage.value = result.lastPage || 1;
+    totalRecords.value = result.total || 0;
+    pageSize.value = result.pageSize || 10;
     hasSearched.value = true;
   } catch (error) {
     showNotice(getErrorMessage(error, "申请记录加载失败"), "error");
@@ -458,8 +481,34 @@ async function loadApplyRecords() {
   }
 }
 
+function changePage(page) {
+  const target = Math.min(Math.max(1, Number(page) || 1), lastPage.value);
+  if (target === currentPage.value) return;
+  loadApplyRecords(target).then(() => {
+    recordListRef.value?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+const pageNumbers = computed(() => {
+  const total = lastPage.value;
+  const cur = currentPage.value;
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const windowSize = 5;
+  let start = Math.max(1, cur - Math.floor(windowSize / 2));
+  let end = start + windowSize - 1;
+  if (end > total) {
+    end = total;
+    start = Math.max(1, end - windowSize + 1);
+  }
+  const nums = [];
+  for (let i = start; i <= end; i++) nums.push(i);
+  return nums;
+});
+
 function searchRecords() {
-  loadApplyRecords();
+  loadApplyRecords(1);
 }
 
 function resetFilters() {
@@ -468,7 +517,7 @@ function resetFilters() {
   filterStatus.value = 0;
   filterStartTime.value = "";
   filterEndTime.value = "";
-  loadApplyRecords();
+  loadApplyRecords(1);
 }
 
 function isRecordExpanded(record) {
@@ -543,7 +592,7 @@ async function submitApply() {
     await api.goodsApply(payload);
     applyItems.value = [];
     remark.value = "";
-    showNotice("申请成功");
+    showNotice("申请成功", "success");
     loadApplyRecords();
   } catch (error) {
     showNotice(getErrorMessage(error, "申请失败"), "error");
@@ -565,7 +614,7 @@ async function confirmRecordReceipt(record) {
   completingIds.value = [...completingIds.value, String(record.id)];
   try {
     await api.completeApply(applyId);
-    showNotice("确认收货成功");
+    showNotice("确认收货成功", "success");
     loadApplyRecords();
   } catch (error) {
     showNotice(getErrorMessage(error, "确认收货失败"), "error");
@@ -1226,6 +1275,47 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 22px 20px;
+}
+
+.pager-btn,
+.pager-num {
+  min-width: 38px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d7e0eb;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #3a4356;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+
+.pager-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pager-num.active {
+  border-color: #4f87ff;
+  background: #4f87ff;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.pager-btn:not(:disabled):hover,
+.pager-num:not(.active):hover {
+  border-color: #4f87ff;
+  color: #4f87ff;
+}
+
 .record-filters {
   padding: 16px 22px 18px;
   border-top: 1px solid #edf2f8;
@@ -1359,22 +1449,44 @@ onBeforeUnmount(() => {
 .notice-banner {
   position: fixed;
   left: 50%;
-  bottom: 24px;
-  z-index: 40;
+  top: 20px;
+  z-index: 90;
   transform: translateX(-50%);
-  min-width: 280px;
-  padding: 14px 18px;
-  border-radius: 14px;
+  min-width: 240px;
+  max-width: 80vw;
+  padding: 22px 32px;
+  border-radius: 16px;
+  font-size: 18px;
   font-weight: 700;
+  text-align: center;
+  line-height: 1.5;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.25);
+  animation: notice-pop 0.18s ease-out;
+}
+
+@keyframes notice-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 .notice-banner.info {
-  background: rgba(18, 63, 113, 0.92);
+  background: rgba(18, 63, 113, 0.95);
+  color: #ffffff;
+}
+
+.notice-banner.success {
+  background: rgba(38, 145, 74, 0.95);
   color: #ffffff;
 }
 
 .notice-banner.error {
-  background: rgba(229, 57, 53, 0.92);
+  background: rgba(229, 57, 53, 0.95);
   color: #ffffff;
 }
 </style>

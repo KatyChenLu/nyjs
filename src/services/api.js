@@ -615,7 +615,8 @@ export const api = {
       goodsName: String(filters.goodsName || "").trim(),
       status: toNumber(filters.status, 0),
       starttime: String(filters.starttime || ""),
-      endtime: String(filters.endtime || "")
+      endtime: String(filters.endtime || ""),
+      page: toNumber(filters.page, 1)
     });
     const rawList = Array.isArray(result?.data) ? result.data : [];
     return {

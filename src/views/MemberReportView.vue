@@ -347,22 +347,44 @@ onBeforeUnmount(() => {
 .notice-banner {
   position: fixed;
   left: 50%;
-  bottom: 24px;
-  z-index: 140;
+  top: 20px;
+  z-index: 200;
   transform: translateX(-50%);
-  min-width: 280px;
-  padding: 14px 18px;
-  border-radius: 14px;
+  min-width: 240px;
+  max-width: 80vw;
+  padding: 22px 32px;
+  border-radius: 16px;
+  font-size: 18px;
   font-weight: 700;
+  text-align: center;
+  line-height: 1.5;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.25);
+  animation: notice-pop 0.18s ease-out;
+}
+
+@keyframes notice-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 .notice-banner.info {
-  background: rgba(18, 63, 113, 0.92);
+  background: rgba(18, 63, 113, 0.95);
+  color: #ffffff;
+}
+
+.notice-banner.success {
+  background: rgba(38, 145, 74, 0.95);
   color: #ffffff;
 }
 
 .notice-banner.error {
-  background: rgba(229, 57, 53, 0.92);
+  background: rgba(229, 57, 53, 0.95);
   color: #ffffff;
 }
 

@@ -1197,24 +1197,46 @@ onBeforeUnmount(() => {
 
 .notice-banner {
   position: fixed;
-  top: 122px;
-  right: 30px;
-  z-index: 40;
+  left: 50%;
+  top: 20px;
+  z-index: 90;
+  transform: translateX(-50%);
   min-width: 240px;
-  padding: 13px 18px;
+  max-width: 80vw;
+  padding: 22px 32px;
   border-radius: 16px;
+  font-size: 18px;
   font-weight: 700;
-  box-shadow: var(--shadow-sm);
+  text-align: center;
+  line-height: 1.5;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.25);
+  animation: notice-pop 0.18s ease-out;
+}
+
+@keyframes notice-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 .notice-banner.info {
-  background: rgba(18, 63, 113, 0.08);
-  color: var(--navy-800);
+  background: rgba(18, 63, 113, 0.95);
+  color: #ffffff;
+}
+
+.notice-banner.success {
+  background: rgba(38, 145, 74, 0.95);
+  color: #ffffff;
 }
 
 .notice-banner.error {
-  background: rgba(229, 57, 53, 0.1);
-  color: var(--danger);
+  background: rgba(229, 57, 53, 0.95);
+  color: #ffffff;
 }
 
 .search-panel {
