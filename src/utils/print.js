@@ -44,7 +44,7 @@ export function printReceipt(payload = {}) {
           <div>门店：${escapeHtml(payload.shopName || "当前门店")}</div>
           <div>时间：${escapeHtml(payload.time || "")}</div>
           <div>单号：${escapeHtml(payload.orderSn || "-")}</div>
-          <div>收银员：${escapeHtml(payload.cashierCode || "-")}</div>
+          <div>收银员：${escapeHtml(payload.cashierName || "-")}</div>
         </div>
         <table>
           <thead>

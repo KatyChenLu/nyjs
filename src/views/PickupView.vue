@@ -296,7 +296,7 @@ async function printSelectedOrder() {
         shopName: selectedOrder.value.shopName,
         time: formatDateTime(new Date()),
         orderSn: selectedOrder.value.orderSn,
-        cashierCode: authStore.getCashierCode(),
+        cashierName: authStore.getCachedSaler()?.salerName || "",
         lines: selectedOrder.value.items.map((item) => ({
           name: item.goodsName,
           qty: `${item.qty}`,
@@ -326,7 +326,7 @@ async function printSelectedOrder() {
     shopName: selectedOrder.value.shopName,
     time: formatDateTime(new Date()),
     orderSn: selectedOrder.value.orderSn,
-    cashierCode: authStore.getCashierCode(),
+    cashierName: authStore.getCachedSaler()?.salerName || "",
     lines: selectedOrder.value.items.map((item) => ({
       name: item.goodsName,
       qty: `${item.qty}`,

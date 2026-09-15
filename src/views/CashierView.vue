@@ -1018,7 +1018,7 @@ function buildReceipt(orderSn) {
     shopName: user?.shopname || "当前门店",
     time: formatDateTime(new Date()),
     orderSn,
-    cashierCode: authStore.getCashierCode(),
+    cashierName: authStore.getCachedSaler()?.salerName || "",
     lines: cart.value.map((item) => ({
       name: item.goodsName,
       qty: `${item.qty}`,
@@ -1137,7 +1137,6 @@ async function executeSettle(smsCode = "") {
     //   payableAmount: payableAmount.value,
     //   itemCount: cartCount.value,
     //   memberMobile: selectedMember.value?.mobile || "",
-    //   cashierCode: authStore.getCashierCode(),
     //   discountAmount: discountAmount.value,
     //   lines: cart.value.map((item) => ({
     //     key: `${orderSn}_${item.id}`,

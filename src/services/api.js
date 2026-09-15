@@ -376,10 +376,6 @@ export const authStore = {
     window.localStorage.removeItem(STORAGE_KEYS.token);
     window.localStorage.removeItem(STORAGE_KEYS.user);
   },
-  getCashierCode() {
-    const user = this.getCachedUser() || {};
-    return String(user.id || 1).padStart(3, "0");
-  },
   getCachedSaler() {
     return cachedSaler.value;
   },

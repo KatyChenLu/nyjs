@@ -8,7 +8,7 @@
           <div class="brand-meta">
             <template v-if="salerName">店员：{{ salerName }}</template>
             <template v-else>店员：未登录</template>
-            <button class="meta-switch" type="button" >切换</button>
+            <button class="meta-switch" type="button" @click="openSalerModal">交接班</button>
           </div>
         </div>
       </div>
@@ -71,7 +71,6 @@ const navItems = [
 ];
 
 const shopName = computed(() => authStore.getCachedUser()?.shopname || "汇泽农业收银系统");
-const cashierCode = computed(() => authStore.getCashierCode());
 const salerName = computed(() => authStore.getCachedSaler()?.salerName || "");
 
 const salerModalVisible = ref(false);

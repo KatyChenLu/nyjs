@@ -8,7 +8,7 @@
           </svg>
         </div>
         <div>
-          <div class="saler-title">店员登录 / 切换</div>
+          <div class="saler-title">店员登录 / 交接班</div>
           <div class="saler-subtitle">选择店员并输入密码完成登录</div>
           <div v-if="shopName" class="saler-shop">{{ shopName }}</div>
         </div>
@@ -18,7 +18,7 @@
       <div v-if="currentSaler" class="saler-current">
         <span class="saler-current-dot" />
         <span>当前店员：<strong>{{ currentSaler.salerName }}</strong>（{{ currentSaler.salerNo }}）</span>
-        <button class="saler-clear" type="button" @click="clearSaler">退出</button>
+        <!-- <button class="saler-clear" type="button" @click="clearSaler">退出</button> -->
       </div>
 
       <div class="saler-body">
@@ -36,6 +36,7 @@
           >
             <span class="saler-item-name">{{ item.salerName || "未命名" }}</span>
             <span class="saler-item-no">{{ item.salerNo }}</span>
+            <span v-if="selectedId === item.id" class="saler-item-check" aria-hidden="true">✓</span>
           </button>
         </div>
 
@@ -157,7 +158,7 @@ async function submit() {
 }
 
 .saler-card {
-  width: min(440px, 100%);
+  width: min(880px, 100%);
   max-height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
@@ -280,11 +281,13 @@ async function submit() {
 
 .saler-list {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
 .saler-item {
+  position: relative;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -305,6 +308,23 @@ async function submit() {
   border-color: #4f87ff;
   background: rgba(79, 135, 255, 0.06);
   box-shadow: 0 12px 24px rgba(79, 135, 255, 0.14);
+}
+
+.saler-item-check {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #4f87ff;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 4px 10px rgba(79, 135, 255, 0.32);
 }
 
 .saler-item-name {

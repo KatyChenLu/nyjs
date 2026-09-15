@@ -39,7 +39,7 @@
           </div>
           <div class="summary-copy">
             <span>申请人</span>
-            <strong>{{ cashierCode }}</strong>
+            <strong>{{ salerName }}</strong>
           </div>
         </div>
         <div class="summary-chip">
@@ -309,7 +309,7 @@ const hasSearched = ref(false);
 const expandedRecordIds = ref([]);
 
 const shopName = computed(() => authStore.getCachedUser()?.shopname || "当前门店");
-const cashierCode = computed(() => authStore.getCashierCode());
+const salerName = computed(() => authStore.getCachedSaler()?.salerName || "");
 
 function getStock(goods = {}) {
   return Number(goods.shopStock ?? goods.stock ?? 0) || 0;

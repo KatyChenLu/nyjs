@@ -57,7 +57,7 @@ function buildReceiptContent(payload = {}) {
     `门店：${payload.shopName || "当前门店"}`,
     `时间：${payload.time || ""}`,
     `单号：${payload.orderSn || "-"}`,
-    `收银员：${payload.cashierCode || "-"}`,
+    `收银员：${payload.cashierName || "-"}`,
     divider,
     `${padRight("商品", 12)}${padRight("数量", 6)}${padRight("单价", 6)}${padRight("小计", 8)}`,
     divider
