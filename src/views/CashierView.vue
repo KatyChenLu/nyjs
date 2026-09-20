@@ -50,6 +50,9 @@
               </span>
               <span>查会员</span>
             </button>
+            <button class="member-search-btn register-member-btn" type="button" @click="openRegister">
+              <span>注册会员</span>
+            </button>
           </div>
         </div>
 
@@ -106,7 +109,8 @@
                 <th>条码</th>
                 <th>品名</th>
                 <th>单价</th>
-                <th>数量/重量</th>
+                <th>吨数</th>
+                <th>件数</th>
                 <th>优惠</th>
                 <th>库存</th>
                 <th>小计</th>
@@ -118,11 +122,33 @@
                 <td>{{ item.barcode || "-" }}</td>
                 <td>
                   <div class="goods-name-cell">{{ item.goodsName }}</div>
-                  <div class="goods-spec-cell">{{ item.spec }}</div>
+                  <!-- <div class="goods-spec-cell">{{ item.spec }}</div> -->
                 </td>
                 <td class="money">¥{{ formatMoney(item.salePrice) }}</td>
                 <td>
-                  <div class="stepper">
+                  <div v-if="item.useTons" class="qty-ton-wrap">
+                    <div class="stepper">
+                      <input
+                        class="ton-input"
+                        :value="item.tons"
+                        inputmode="decimal"
+                        @input="onTonsInput(item, $event.target.value)"
+                      />
+                      <span class="ton-unit">吨</span>
+                    </div>
+                    <div v-if="item.hasSpec" class="spec-hint">
+                      规格 {{ item.spec }}<template v-if="item.packageTons < 1">（{{ round2(item.packageTons * 1000) }} kg/件）</template>
+                    </div>
+                    <div v-if="specInfo(item).message" class="spec-warn">
+                      <span>{{ specInfo(item).message }}</span>
+                      <button type="button" class="spec-fix" @click="applySpecSuggestion(item)">调整为 {{ specInfo(item).suggestTonsText }} 吨</button>
+                    </div>
+                  </div>
+                  <span v-else>—</span>
+                </td>
+                <td>
+                  <span v-if="item.useTons">{{ item.qty }}</span>
+                  <div v-else class="stepper">
                     <button type="button" @click="changeQty(item, -1)">-</button>
                     <input
                       :value="item.qty"
@@ -140,7 +166,7 @@
               </tr>
 
               <tr v-if="!cart.length">
-                <td colspan="8" class="empty-row">
+                <td colspan="9" class="empty-row">
                   <div class="empty-state">
                     <div class="empty-state-graphic" aria-hidden="true">
                       <span class="empty-orb"></span>
@@ -343,6 +369,37 @@
       </div>
     </div>
 
+    <div v-if="registerVisible" class="pricing-mask" @click.self="closeRegister">
+      <div class="register-dialog panel">
+        <div class="pricing-header">
+          <span>注册会员</span>
+          <button class="pricing-close" type="button" @click="closeRegister">×</button>
+        </div>
+        <div class="register-body">
+          <div class="register-field">
+            <label class="register-label">姓名</label>
+            <input v-model.trim="registerForm.username" class="register-input" placeholder="会员姓名" />
+          </div>
+          <div class="register-field">
+            <label class="register-label">手机号</label>
+            <input v-model.trim="registerForm.mobile" class="register-input" placeholder="11 位手机号" inputmode="numeric" />
+          </div>
+          <div class="register-field">
+            <label class="register-label">身份证号</label>
+            <input v-model.trim="registerForm.idCard" class="register-input" placeholder="身份证号" />
+          </div>
+          <div class="register-field">
+            <label class="register-label">地址</label>
+            <input v-model.trim="registerForm.address" class="register-input" placeholder="详细地址" />
+          </div>
+        </div>
+        <div class="register-actions">
+          <button class="ghost-btn" type="button" @click="closeRegister">取消</button>
+          <button class="primary-btn" type="button" :disabled="registerSubmitting" @click="submitRegister">提交注册</button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="payPasswordVisible" class="pricing-mask" @click.self="closePayPasswordDialog">
       <div class="pay-password-dialog panel">
         <div class="pricing-header">
@@ -422,6 +479,10 @@ const selectedGoodsIds = ref([]);
 const libraryVisible = ref(false);
 const libraryLoading = ref(false);
 const heldOrderCount = ref(0);
+const tonsTypeIds = ref(new Set([1]));
+const registerVisible = ref(false);
+const registerSubmitting = ref(false);
+const registerForm = ref({ username: "", idCard: "", mobile: "", address: "" });
 
 const notice = ref(null);
 const settling = ref(false);
@@ -710,9 +771,16 @@ function applyPricing() {
 }
 
 function buildCartItem(goods) {
+  const parsed = parseSpecTons(goods.spec);
+  const packageTons = parsed ?? 1;
+  const useTons = (goods.typeIds || []).some((id) => tonsTypeIds.value.has(id));
   return {
     ...toDisplayGoods(goods),
-    qty: 1
+    qty: 1,
+    useTons,
+    packageTons,
+    hasSpec: parsed != null,
+    tons: formatTons(packageTons * 1)
   };
 }
 
@@ -725,6 +793,7 @@ function addGoodsToCart(goods) {
   });
   if (existing) {
     existing.qty += 1;
+    recomputeTons(existing);
     showNotice(`已增加 ${goods.goodsName}`);
     return;
   }
@@ -854,6 +923,94 @@ async function searchGoodsByName(keyword) {
   }
 }
 
+function parseSpecTons(spec) {
+  if (!spec || spec === "-") return null;
+  const match = String(spec).match(/([\d.]+)\s*(吨|t|千克|公斤|kg|g|克|斤)/i);
+  if (!match) return null;
+  const num = parseFloat(match[1]);
+  const unit = match[2].toLowerCase();
+  let tons;
+  if (unit === "吨" || unit === "t") {
+    tons = num;
+  } else if (unit.includes("千克") || unit.includes("公斤") || unit === "kg") {
+    tons = num / 1000;
+  } else if (unit === "g" || unit.includes("克")) {
+    tons = num / 1000000;
+  } else if (unit === "斤") {
+    tons = num / 2000;
+  } else {
+    return null;
+  }
+  return tons > 0 ? tons : null;
+}
+
+function round2(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function recomputeTons(item) {
+  const pkg = item.packageTons > 0 ? item.packageTons : 1;
+  item.tons = formatTons(item.qty * pkg);
+}
+
+function formatTons(n) {
+  return parseFloat(n.toFixed(8)).toString();
+}
+
+function sanitizeTons(raw) {
+  let v = String(raw).replace(/[^\d.]/g, "");
+  const dot = v.indexOf(".");
+  if (dot !== -1) {
+    v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, "");
+  }
+  return v;
+}
+
+function onTonsInput(item, raw) {
+  const cleaned = sanitizeTons(raw);
+  item.tons = cleaned;
+  if (cleaned === "") {
+    item.qty = 1;
+    return;
+  }
+  const tons = Number(cleaned);
+  const pkg = item.packageTons > 0 ? item.packageTons : 1;
+  item.qty = Math.max(1, Math.round(tons / pkg));
+}
+
+function specInfo(item) {
+  if (!item.hasSpec) {
+    return { valid: true, message: "", suggestPackages: null, suggestTons: null, suggestTonsText: "" };
+  }
+  const pkg = item.packageTons > 0 ? item.packageTons : 1;
+  const tons = Number(item.tons || "0") || 0;
+  if (tons <= 0) {
+    return { valid: true, message: "", suggestPackages: null, suggestTons: null, suggestTonsText: "" };
+  }
+  const exact = tons / pkg;
+  const eps = 1e-6;
+  if (Math.abs(exact - Math.round(exact)) < eps) {
+    return { valid: true, message: "", suggestPackages: Math.round(exact), suggestTons: null, suggestTonsText: "" };
+  }
+  const lo = Math.max(1, Math.floor(exact));
+  const hi = lo + 1;
+  const loTons = lo * pkg;
+  const hiTons = hi * pkg;
+  const best = Math.abs(loTons - tons) <= Math.abs(hiTons - tons)
+    ? { packages: lo, tons: loTons }
+    : { packages: hi, tons: hiTons };
+  const message = `非整件（${item.spec || "规格"}）：建议调整为 ${formatTons(best.tons)} 吨（${best.packages} 件）`;
+  return { valid: false, message, suggestPackages: best.packages, suggestTons: best.tons, suggestTonsText: formatTons(best.tons) };
+}
+
+function applySpecSuggestion(item) {
+  const info = specInfo(item);
+  if (info.suggestTons != null) {
+    item.tons = info.suggestTonsText;
+    item.qty = info.suggestPackages;
+  }
+}
+
 function changeQty(item, delta) {
   const nextQty = item.qty + delta;
   if (nextQty <= 0) {
@@ -924,6 +1081,38 @@ async function searchMember() {
   }
 }
 
+function openRegister() {
+  registerForm.value = { username: "", idCard: "", mobile: "", address: "" };
+  registerVisible.value = true;
+}
+
+function closeRegister() {
+  registerVisible.value = false;
+}
+
+async function submitRegister() {
+  const form = registerForm.value;
+  if (!form.username || !form.mobile || !form.idCard || !form.address) {
+    showNotice("请填写完整信息（姓名/手机号/身份证号/地址）", "error");
+    return;
+  }
+  registerSubmitting.value = true;
+  try {
+    await api.addMember({
+      username: form.username,
+      idCard: form.idCard,
+      mobile: form.mobile,
+      address: form.address
+    });
+    showNotice("注册成功", "success");
+    closeRegister();
+  } catch (error) {
+    showNotice(getErrorMessage(error, "注册失败"), "error");
+  } finally {
+    registerSubmitting.value = false;
+  }
+}
+
 async function loadMemberLogs(member = selectedMember.value) {
   if (!member?.mobile) {
     memberLogs.value = [];
@@ -976,6 +1165,21 @@ function clearMember() {
   rechargeAmount.value = "";
   libraryGoods.value = libraryGoods.value.map((item) => toDisplayGoods(item, null));
   refreshCartPrices(null);
+}
+
+async function loadTonTypeIds() {
+  try {
+    const result = await api.fetchGoods({ typeId: 1, keyword: "", page: 1 });
+    const set = new Set([1]);
+    (result.list || []).forEach((goods) => {
+      (goods.typeIds || []).forEach((id) => {
+        if (id) set.add(id);
+      });
+    });
+    tonsTypeIds.value = set;
+  } catch (error) {
+    showNotice(getErrorMessage(error, "吨类分类加载失败"), "error");
+  }
 }
 
 async function loadRoundRate() {
@@ -1160,6 +1364,7 @@ async function executeSettle(smsCode = "") {
 
 onMounted(() => {
   loadRoundRate();
+  loadTonTypeIds();
   loadCatalog(0);
   syncHeldOrderCount();
   removeScannerListener = registerScannerListener("cashier-page", (code) => {
@@ -1621,6 +1826,57 @@ onBeforeUnmount(() => {
   color: #4d73d8;
   font-size: 14px;
   font-weight: 700;
+}
+
+.qty-ton-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.ton-input {
+  width: 64px;
+  border-left: 1px solid #edf2f8;
+  border-right: 1px solid #edf2f8;
+  outline: none;
+}
+
+.ton-unit {
+  padding: 0 8px 0 2px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.spec-hint {
+  color: #6b7689;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.spec-warn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 220px;
+  color: #c0392b;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.spec-fix {
+  border: 1px solid #e7b7b0;
+  background: #fff4f2;
+  color: #c0392b;
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.spec-fix:hover {
+  background: #fde7e3;
 }
 
 .empty-row {
@@ -2151,6 +2407,106 @@ onBeforeUnmount(() => {
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.register-dialog {
+  width: min(440px, calc(100vw - 24px));
+  padding: 0;
+  overflow: hidden;
+}
+
+.register-body {
+  padding: 18px 20px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.register-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.register-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #5b6477;
+}
+
+.register-input {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d7e0eb;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #2a3242;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.register-input:focus {
+  border-color: #4f87ff;
+  box-shadow: 0 0 0 3px rgba(79, 135, 255, 0.16);
+}
+
+.register-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid #edf1f6;
+}
+
+.primary-btn {
+  height: 38px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 10px;
+  background: #2f6bff;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+.primary-btn:hover {
+  background: #2257e0;
+}
+
+.primary-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ghost-btn {
+  height: 38px;
+  padding: 0 18px;
+  border: 1px solid #d7e0eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #3a4356;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+
+.ghost-btn:hover {
+  border-color: #4f87ff;
+  color: #4f87ff;
+}
+
+.register-member-btn {
+  background: #eef4ff;
+  color: #2f6bff;
+  border: 1px solid #cfe0ff;
+}
+
+.register-member-btn:hover {
+  background: #e2edff;
 }
 
 .pricing-mask {

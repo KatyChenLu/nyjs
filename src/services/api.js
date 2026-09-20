@@ -438,6 +438,9 @@ const shopApi = {
   recharge(payload) {
     return request({ url: "shop/index/recharge", data: payload });
   },
+  addMember(payload = {}) {
+    return request({ url: "shop/index/addMember", data: payload });
+  },
   fetchRoundRate() {
     return request({ url: "shop/index/getRoundRate", data: {} });
   },
@@ -525,6 +528,9 @@ export const api = {
   async rechargeMember(payload) {
     await shopApi.recharge(payload);
     return true;
+  },
+  async addMember(payload = {}) {
+    return shopApi.addMember(payload);
   },
   async fetchRoundRate() {
     const result = await shopApi.fetchRoundRate();
